@@ -1,0 +1,37 @@
+[package]
+name = "dynamic-island-radio"
+version = "0.3.1"
+description = "Widget radio bergaya Dynamic Island"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# macos-private-api: diperlukan agar jendela transparan berfungsi di macOS (tidak berpengaruh di Windows)
+tauri = { version = "2", features = ["macos-private-api"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
+base64 = "0.22"
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+aes-gcm = "0.10"
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+serde = { version = "1", features = ["derive"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+regex = "1"
+futures = "0.3"
+
+# Credential Manager (Windows) / Keychain (macOS) / keyutils (Linux)
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["linux-native"] }
+
+[profile.release]
+opt-level = "s"   # utamakan ukuran kecil
+lto = true
+strip = true

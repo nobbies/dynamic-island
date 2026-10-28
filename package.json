@@ -1,0 +1,16 @@
+{
+  "name": "dynamic-island-radio",
+  "version": "0.3.1",
+  "private": true,
+  "scripts": {
+    "pretauri": "node scripts/build-stations.mjs",
+    "tauri": "tauri",
+    "stations": "node scripts/build-stations.mjs",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@resvg/resvg-js": "^2",
+    "png-to-ico": "^2"
+  }
+}

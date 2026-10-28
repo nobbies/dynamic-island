@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Dynamic Island Radio</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell" id="shell" data-mode="compact">
+<div class="island compact" id="island">
+
+  <div class="view mini" id="mini">
+    <div class="eq"><i></i><i></i><i></i><i></i></div>
+    <span class="name" id="miniName"></span>
+    <button class="ic main" id="miniPlay" aria-label="Putar atau jeda"></button>
+    <button class="ic" id="miniOpen" aria-label="Buka kontrol"><svg viewBox="0 0 16 16"><path d="M3 10l5-5 5 5z"/></svg></button>
+  </div>
+
+  <div class="view full">
+    <nav class="tabs" id="tabs" aria-label="Modul">
+      <button class="tab on" data-mt="radio" aria-label="Radio" title="Radio">📻</button>
+      <button class="tab" data-mt="sys" aria-label="Monitor sistem" title="Monitor sistem">📊</button>
+      <button class="tab" data-mt="notes" aria-label="Catatan dan tugas" title="Catatan dan tugas">📝</button>
+      <button class="tab" data-mt="ai" aria-label="Asisten AI" title="Asisten AI (Ctrl+Shift+A)">✨</button>
+      <span class="gap"></span>
+      <button class="tab sm" id="openSet" aria-label="Pengaturan" title="Pengaturan">⚙</button>
+      <button class="tab sm" id="quit" aria-label="Keluar" title="Keluar dari aplikasi">⏻</button>
+      <button class="tab sm collapse" id="close" aria-label="Tutup panel" title="Tutup panel (Esc)"><svg viewBox="0 0 16 16"><path d="M3 10l5-5 5 5z"/></svg></button>
+    </nav>
+    <div class="mods" id="mods">
+      <section class="mod on" data-mod="radio" aria-label="Radio">
+    <div class="top">
+      <div class="logo" id="logo"></div>
+      <div class="meta"><div class="title" id="title"></div><div class="sub"><span class="live"></span><span id="status"></span></div></div>
+      <div class="eq big"><i></i><i></i><i></i><i></i></div>
+    </div>
+        <div class="ctrl">
+          <canvas id="wave" aria-hidden="true"></canvas>
+          <button class="ic" id="prev" aria-label="Stasiun sebelumnya"><svg viewBox="0 0 16 16"><path d="M12 3v10L5 8zM3 3h2v10H3z"/></svg></button>
+          <button class="ic main" id="play" aria-label="Putar atau jeda"></button>
+          <button class="ic" id="next" aria-label="Stasiun berikutnya"><svg viewBox="0 0 16 16"><path d="M4 3v10l7-5zM11 3h2v10h-2z"/></svg></button>
+        </div>
+        <div class="strip" id="strip" aria-label="Pilih stasiun"></div>
+        <div class="row">
+          <button class="pill" id="mute" aria-label="Bisukan">🔊</button>
+          <input type="range" id="vol" min="0" max="1" step="0.01" aria-label="Volume">
+          <button class="pill" id="browse" aria-label="Daftar dan tambah stasiun" title="Daftar dan tambah stasiun">🔍</button>
+        </div>
+      </section>
+
+      <section class="mod" data-mod="sys" aria-label="Monitor sistem">
+        <div class="mh"><div class="title">Monitor sistem</div></div>
+        <div class="cards">
+          <div class="card cpu"><div class="k">CPU</div><div class="v" id="cpuV">–</div><div class="s">&nbsp;</div>
+            <svg class="spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><polyline id="cpuS" points=""/></svg></div>
+          <div class="card ram"><div class="k">RAM</div><div class="v" id="ramV">–</div><div class="s" id="ramSub">&nbsp;</div>
+            <svg class="spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><polyline id="ramS" points=""/></svg></div>
+        </div>
+        <div class="appmem" id="appMem">Memori aplikasi ini (termasuk WebView): menunggu data…</div>
+      </section>
+
+      <section class="mod" data-mod="notes" aria-label="Catatan dan tugas">
+        <div class="mh">
+          <div class="seg2"><button class="pill on" data-nt="notes">Catatan</button><button class="pill" data-nt="tasks">Tugas <span id="taskCount"></span></button></div>
+          <span class="d" id="saveInfo"></span>
+        </div>
+        <textarea id="noteText" class="fld area" placeholder="Tulis catatan cepat… Tersimpan otomatis dan terenkripsi 🔒" disabled></textarea>
+        <div class="tasks" id="tasksBox" hidden>
+          <div class="rowf"><input class="fld" id="taskIn" type="text" autocomplete="off" placeholder="Tambah tugas, tekan Enter"><button class="pill" id="taskAdd" aria-label="Tambah tugas">＋</button></div>
+          <div class="tlist" id="taskList"></div>
+        </div>
+        <div class="rowf"><div class="err" id="noteErr"></div><button class="pill" id="noteReset" hidden>Mulai catatan baru</button></div>
+      </section>
+
+      <section class="mod" data-mod="ai" aria-label="Asisten AI">
+        <div class="mh"><div class="title">Asisten AI</div><span class="d" id="aiInfo"></span></div>
+        <div class="aiout" id="aiOut" tabindex="0">Tanya apa saja, atau tempel teks lalu pilih <b>Ringkas</b>.</div>
+        <div class="aiq">
+          <button class="pill" data-aq="Ringkas teks berikut dalam beberapa poin singkat:">Ringkas</button>
+          <button class="pill" data-aq="Jelaskan dengan sederhana:">Jelaskan</button>
+          <button class="pill" data-aq="Terjemahkan ke Bahasa Indonesia:">Terjemahkan</button>
+          <button class="pill" id="aiCopy" hidden>Salin</button>
+        </div>
+        <div class="aibar"><textarea id="aiIn" class="fld area" rows="2" placeholder="Tanya sesuatu… (Enter kirim, Shift+Enter baris baru)"></textarea>
+          <button class="ic main" id="aiSend" aria-label="Kirim"><svg viewBox="0 0 16 16"><path d="M2 2l12 6-12 6 2-6z"/></svg></button></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="view lib" id="libv">
+    <div class="top">
+      <button class="ic" id="back" aria-label="Kembali"><svg viewBox="0 0 16 16"><path d="M10 3L5 8l5 5z"/></svg></button>
+      <div class="meta"><div class="title sm" id="libTitle">Stasiun</div><div class="sub" id="count"></div></div>
+      <button class="pill" id="toggleAdd">＋ Tambah</button>
+    </div>
+    <input id="q" type="text" autocomplete="off" placeholder="Cari nama, frekuensi, atau kota…">
+    <div class="list" id="list"></div>
+    <div class="form">
+      <input id="nm" type="text" autocomplete="off" placeholder="Nama stasiun (boleh kosong)">
+      <input id="ur" type="text" autocomplete="off" placeholder="Alamat stream, mis. http://server:8000/live">
+      <div class="icrow">
+        <input id="ic" type="text" autocomplete="off" placeholder="Ikon (opsional): URL gambar, atau pilih file →">
+        <button class="pill" id="pick" aria-label="Pilih file gambar untuk ikon" title="Pilih file gambar">📁</button>
+      </div>
+      <input id="file" type="file" accept="image/*" hidden>
+      <div class="editrow">
+        <button class="pill" id="reStream" title="Buang alamat stream tersimpan dan cari ulang dari halaman sumber">🔄 Cari ulang stream</button>
+        <button class="pill" id="delIcon">🗑 Hapus ikon</button>
+        <button class="pill" id="cancelEdit">Batal</button>
+      </div>
+      <div class="err" id="err"></div>
+      <button class="add" id="add">Tambah dan putar</button>
+    </div>
+  </div>
+  <div class="view set">
+    <div class="top">
+      <button class="ic" id="backSet" aria-label="Kembali"><svg viewBox="0 0 16 16"><path d="M10 3L5 8l5 5z"/></svg></button>
+      <div class="meta"><div class="title sm">Pengaturan</div><div class="sub">Dynamic Island Radio</div></div>
+    </div>
+    <div class="sbody" id="sbody">
+    <div class="opt col">
+      <div class="txt"><div class="n">Tema</div><div class="d" id="themeName"></div></div>
+      <div class="themes" id="themes" role="radiogroup" aria-label="Tema">
+        <button class="sw" data-theme="auto" role="radio" title="Otomatis (ikuti Windows)" aria-label="Otomatis"></button>
+        <button class="sw" data-theme="holo" role="radio" title="Holografik" aria-label="Holografik"></button>
+        <button class="sw" data-theme="midnight" role="radio" title="Midnight" aria-label="Midnight"></button>
+        <button class="sw" data-theme="light" role="radio" title="Terang" aria-label="Terang"></button>
+        <button class="sw" data-theme="ocean" role="radio" title="Samudra" aria-label="Samudra"></button>
+        <button class="sw" data-theme="sunset" role="radio" title="Senja" aria-label="Senja"></button>
+      </div>
+    </div>
+    <div class="opt">
+      <div class="txt"><div class="n">Mulai saat komputer menyala</div><div class="d">Jalankan widget otomatis setelah login</div></div>
+      <button class="switch" id="startup" role="switch" aria-checked="false" aria-label="Mulai saat komputer menyala"></button>
+    </div>
+    <div class="opt">
+      <div class="txt"><div class="n">Auto-hide</div><div class="d">Ciutkan jadi garis tipis; arahkan kursor ke tepi atas untuk memunculkan</div></div>
+      <button class="switch" id="auto" role="switch" aria-checked="false" aria-label="Auto-hide"></button>
+    </div>
+    <div class="opt col">
+      <div class="txt"><div class="n">Timer tidur</div><div class="d">Hentikan radio otomatis setelah waktu yang dipilih</div></div>
+      <div class="seg" id="sleepSeg"></div>
+    </div>
+    <div class="opt col">
+      <div class="rowf">
+        <div class="txt"><div class="n">Ikon stasiun</div><div class="d" id="iconInfo">Unduh ulang ikon yang belum tampil</div></div>
+        <button class="pill" id="reloadIcons">Muat ulang</button>
+      </div>
+      <div class="rowf">
+        <span class="d">Ukuran</span>
+        <input type="range" id="zoom" min="1" max="1.8" step="0.05" aria-label="Ukuran ikon dalam kotak">
+        <span class="d zv" id="zoomVal"></span>
+      </div>
+    </div>
+    <div class="opt">
+      <div class="txt"><div class="n">Waveform dari audio asli</div><div class="d">Eksperimental. Hanya bekerja pada stream yang mengizinkan (CORS); selain itu waveform berupa efek animasi</div></div>
+      <button class="switch" id="realWave" role="switch" aria-checked="false" aria-label="Waveform dari audio asli"></button>
+    </div>
+    <div class="opt col">
+      <div class="txt"><div class="n">Asisten AI</div><div class="d" id="aiState">Belum ada API key</div></div>
+      <div class="rowf"><span class="d lab">Penyedia</span>
+        <select class="fld" id="aiProv"><option value="anthropic">Claude (Anthropic)</option><option value="openai">Kompatibel OpenAI</option></select></div>
+      <input class="fld" id="aiEp" type="text" autocomplete="off" placeholder="Endpoint API" aria-label="Endpoint API">
+      <input class="fld" id="aiModel" type="text" autocomplete="off" placeholder="Nama model" aria-label="Nama model">
+      <div class="rowf"><input class="fld" id="aiKey" type="password" autocomplete="off" placeholder="Tempel API key…" aria-label="API key">
+        <button class="pill" id="aiKeySave">Simpan</button><button class="pill" id="aiKeyDel">Hapus</button></div>
+      <div class="d">API key disimpan di Windows Credential Manager, tidak pernah di berkas teks, dan tidak dikirim ke halaman web.</div>
+    </div>
+    <div class="opt col">
+      <div class="n">Pintasan keyboard</div>
+      <div class="d keys"><b>Ctrl+Shift+Space</b> buka/tutup panel<br><b>Ctrl+Shift+A</b> tanya asisten AI<br><b>Ctrl+Alt+R</b> atau tombol media: putar/jeda<br><b>Alt+1–4</b> atau <b>Ctrl+←/→</b> ganti modul · <b>←/→</b> ganti stasiun · <b>Esc</b> tutup</div>
+    </div>
+    <div class="opt col">
+      <div class="txt"><div class="n">Diagnostik</div><div class="d">Catatan teknis untuk mencari penyebab masalah, mis. aplikasi lain ikut terbuka saat Windows menyala. Tidak berisi catatan, API key, atau riwayat putar</div></div>
+      <div class="rowf"><button class="pill" id="diagShow">Tampilkan</button><button class="pill" id="diagCopy" hidden>Salin</button></div>
+      <pre class="diag" id="diagOut" hidden></pre>
+    </div>
+    <div class="err" id="setErr"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="stations.default.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
