@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "resources": {
+      "resources/HardwareSensor.exe": "HardwareSensor.exe",
+      "resources/LibreHardwareMonitor-LICENSE.txt": "LibreHardwareMonitor-LICENSE.txt"
+    }
+  }
+}

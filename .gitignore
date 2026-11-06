@@ -1,0 +1,8 @@
+node_modules
+src-tauri/target
+src-tauri/gen
+src-tauri/resources/HardwareSensor.exe
+src-tauri/resources/LibreHardwareMonitor-LICENSE.txt
+sensor/bin
+sensor/obj
+sensor/.artifacts
