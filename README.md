@@ -1,4 +1,4 @@
-# 🏝️ Dynamic Island Desktop (Tauri)
+# 🏝️ Dynamic Island Radio (Tauri)
 
 <p align="center">
   Aplikasi desktop <i>Dynamic Island</i> bergaya futuristik dengan estetika <em>glassmorphism</em> untuk Windows, dilengkapi dengan pemantauan perangkat keras sistem secara <em>real-time</em> dan pemutar audio terintegrasi.
