@@ -1,6 +1,6 @@
 //! Klien asisten AI. Permintaan dikirim dari Rust (bukan dari halaman web), sehingga API key tidak pernah
-//! menyentuh JavaScript. Mendukung dua format: Anthropic Messages API dan "kompatibel OpenAI" (OpenAI, OpenRouter,
-//! Groq, Ollama, LM Studio, dst.).
+//! menyentuh JavaScript. Mendukung Anthropic Messages API, Gemini generateContent, dan format kompatibel OpenAI
+//! (OpenAI, GitHub Copilot, OpenRouter, Groq, Ollama, LM Studio, dst.).
 use reqwest::{Client, Url};
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -19,6 +19,18 @@ fn trunc(s: &str) -> String {
     if s.chars().count() > 160 { format!("{}…", s.chars().take(160).collect::<String>()) } else { s }
 }
 
+fn encode_path_segment(s: &str) -> String {
+    let mut encoded = String::new();
+    for byte in s.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            encoded.push(byte as char);
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
 /// `key` TIDAK pernah dimasukkan ke pesan kesalahan.
 pub async fn ask(provider: &str, endpoint: &str, model: &str, key: Option<&str>, prompt: &str) -> Result<String, String> {
     let prompt = prompt.trim();
@@ -31,7 +43,12 @@ pub async fn ask(provider: &str, endpoint: &str, model: &str, key: Option<&str>,
     if model.trim().is_empty() {
         return Err("Nama model belum diisi (⚙ Pengaturan → Asisten AI).".into());
     }
-    let url = Url::parse(endpoint.trim()).map_err(|_| "Alamat endpoint tidak valid.".to_string())?;
+    let endpoint = if provider == "gemini" {
+        endpoint.trim().replace("{model}", &encode_path_segment(model.trim()))
+    } else {
+        endpoint.trim().to_string()
+    };
+    let url = Url::parse(&endpoint).map_err(|_| "Alamat endpoint tidak valid.".to_string())?;
     let local = is_local(&url);
     if url.scheme() != "https" && !(url.scheme() == "http" && local) {
         return Err("Endpoint harus https:// (http:// hanya untuk localhost).".into());
@@ -50,13 +67,23 @@ pub async fn ask(provider: &str, endpoint: &str, model: &str, key: Option<&str>,
             client.post(url).header("x-api-key", key).header("anthropic-version", "2023-06-01")
                 .header("content-type", "application/json").body(body.to_string())
         }
-        "openai" => {
+        "gemini" => {
+            let key = key.ok_or(NEED_KEY)?;
+            let body = json!({
+                "systemInstruction": { "parts": [{ "text": SYSTEM }] },
+                "contents": [{ "parts": [{ "text": prompt }] }],
+                "generationConfig": { "maxOutputTokens": 600 }
+            });
+            client.post(url).header("x-goog-api-key", key)
+                .header("content-type", "application/json").body(body.to_string())
+        }
+        "openai" | "copilot" => {
             let body = json!({ "model": model, "max_tokens": 600,
                                "messages": [{ "role": "system", "content": SYSTEM }, { "role": "user", "content": prompt }] });
             let r = client.post(url).header("content-type", "application/json").body(body.to_string());
             match key {
                 Some(k) => r.bearer_auth(k),
-                None if local => r, // server lokal (Ollama/LM Studio) biasanya tanpa kunci
+                None if local && provider == "openai" => r, // server lokal (Ollama/LM Studio) biasanya tanpa kunci
                 None => return Err(NEED_KEY.into()),
             }
         }
@@ -78,12 +105,15 @@ pub async fn ask(provider: &str, endpoint: &str, model: &str, key: Option<&str>,
             c => format!("Server AI menjawab HTTP {c}: {}", trunc(msg)),
         });
     }
-    let out = if provider == "anthropic" {
-        v["content"].as_array().map(|a| {
+    let out = match provider {
+        "anthropic" => v["content"].as_array().map(|a| {
             a.iter().filter(|b| b["type"] == "text").filter_map(|b| b["text"].as_str()).collect::<Vec<_>>().join("")
-        })
-    } else {
-        v["choices"][0]["message"]["content"].as_str().map(String::from)
+        }),
+        "gemini" => v["candidates"][0]["content"]["parts"].as_array().map(|parts| {
+            parts.iter().filter_map(|part| part["text"].as_str()).collect::<Vec<_>>().join("")
+        }),
+        "openai" | "copilot" => v["choices"][0]["message"]["content"].as_str().map(String::from),
+        _ => None,
     };
     match out.map(|s| s.trim().to_string()) {
         Some(s) if !s.is_empty() => Ok(s),
@@ -95,9 +125,14 @@ pub async fn ask(provider: &str, endpoint: &str, model: &str, key: Option<&str>,
 mod tests {
     use super::*;
 
+    #[test]
+    fn encodes_gemini_model_path_segment() {
+        assert_eq!(encode_path_segment("gemini-2.5/flash"), "gemini-2.5%2Fflash");
+    }
+
     // Dijalankan dengan: AI_TEST_BASE=http://127.0.0.1:8765 cargo test (butuh server uji; dilewati jika tidak diset)
     #[test]
-    fn format_anthropic_dan_openai() {
+    fn format_anthropic_gemini_openai_dan_copilot() {
         let Ok(base) = std::env::var("AI_TEST_BASE") else { return };
         tauri::async_runtime::block_on(async {
             let a = format!("{base}/anthropic/v1/messages");
@@ -109,6 +144,12 @@ mod tests {
             let o = format!("{base}/openai/v1/chat/completions");
             assert_eq!(ask("openai", &o, "m", Some("k2"), "Halo").await.unwrap(), "jawaban");
             assert!(ask("openai", &o, "m", None, "Halo").await.unwrap_err().contains("ditolak"), "localhost boleh tanpa kunci");
+
+            let g = format!("{base}/gemini/v1beta/models/{{model}}:generateContent");
+            assert_eq!(ask("gemini", &g, "gemini-test", Some("k3"), "Halo").await.unwrap(), "jawaban Gemini");
+            let c = format!("{base}/copilot/v1/chat/completions");
+            assert_eq!(ask("copilot", &c, "gpt-4o", Some("k4"), "Halo").await.unwrap(), "jawaban");
+            assert!(ask("copilot", &c, "gpt-4o", None, "Halo").await.unwrap_err().contains("API key belum"));
 
             assert!(ask("anthropic", &format!("{base}/rate"), "m", Some("k1"), "x").await.unwrap_err().contains("429"));
             assert!(ask("anthropic", &format!("{base}/empty"), "m", Some("k1"), "x").await.unwrap_err().contains("kosong"));

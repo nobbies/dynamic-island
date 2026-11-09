@@ -23,6 +23,8 @@ aes-gcm = "0.10"
 sysinfo = { version = "0.33", default-features = false, features = ["system", "network"] }
 serde = { version = "1", features = ["derive"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+if-addrs = "0.13"
+dns-lookup = "2"
 regex = "1"
 futures = "0.3"
 

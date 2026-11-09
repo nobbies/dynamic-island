@@ -5,6 +5,7 @@ mod ai;
 mod applog;
 mod detect;
 mod gpu;
+mod ip_scan;
 mod metrics;
 mod secrets;
 mod sensor;
@@ -207,6 +208,17 @@ async fn detect(url: String) -> Option<detect::Found> {
     detect::detect(&url).await
 }
 
+#[tauri::command]
+async fn scan_local_network(app: AppHandle) -> Result<ip_scan::ScanResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        ip_scan::scan(|progress| {
+            let _ = app.emit("ip-scan-progress", progress);
+        })
+    })
+    .await
+    .map_err(|e| format!("Pemindaian jaringan gagal: {e}"))?
+}
+
 // Halaman aplikasi hanya boleh berada di alamat aplikasi sendiri. Navigasi ke luar atau pembukaan jendela/baru ditolak dan dicatat.
 fn app_url(url: &tauri::Url) -> bool {
     matches!(url.scheme(), "tauri" | "about" | "data" | "blob")
@@ -265,7 +277,7 @@ fn main() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
-            diag_text, set_mode, quit_app, autostart_status, autostart_set, fetch_icon, probe, detect,
+            diag_text, set_mode, quit_app, autostart_status, autostart_set, fetch_icon, probe, detect, scan_local_network,
             metrics_start, metrics_stop, vault_load, vault_save, vault_reset,
             ai_key_status, ai_key_set, ai_key_clear, ai_ask
         ])

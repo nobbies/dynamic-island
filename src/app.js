@@ -15,6 +15,8 @@ window.di = {
   diagText: () => invoke('diag_text'),
   metricsStart: () => invoke('metrics_start'),
   metricsStop: () => invoke('metrics_stop'),
+  scanLocalNetwork: () => invoke('scan_local_network'),
+  onIpScanProgress: (cb) => listen('ip-scan-progress', (e) => cb(e.payload)),
   onMetrics: (cb) => listen('metrics', (e) => cb(e.payload)),
   vaultLoad: () => invoke('vault_load'),
   vaultSave: (data) => invoke('vault_save', { data }),
@@ -626,7 +628,7 @@ function waveOn(on) {
 }
 
 // ======================= Tumpukan modul (FR-02.4) =======================
-const MODS = ['radio', 'sys', 'notes', 'ai'];
+const MODS = ['radio', 'sys', 'ipscan', 'notes', 'ai'];
 let metricsOn = false, lastSwipe = 0;
 function setModule(name, focus = true) {
   if (!MODS.includes(name)) return;
@@ -634,7 +636,7 @@ function setModule(name, focus = true) {
   document.querySelectorAll('.mod').forEach((m) => { const i = MODS.indexOf(m.dataset.mod); m.classList.toggle('on', i === to); m.classList.toggle('left', i < to); });
   document.querySelectorAll('[data-mt]').forEach((t) => t.classList.toggle('on', t.dataset.mt === name));
   syncModules();
-  if (focus) setTimeout(() => { if (name === 'ai') $('aiIn').focus(); else if (name === 'notes' && !$('noteText').disabled && !$('noteText').hidden) $('noteText').focus(); }, 120);
+  if (focus) setTimeout(() => { if (name === 'ai') $('aiIn').focus(); else if (name === 'notes' && !$('noteText').disabled && !$('noteText').hidden) $('noteText').focus(); else if (name === 'ipscan') $('ipScanStart').focus(); }, 120);
 }
 const stepModule = (d) => setModule(MODS[(MODS.indexOf(S.mod) + d + MODS.length) % MODS.length]);
 const swipeModule = (d) => { const n = Date.now(); if (n - lastSwipe < 350) return; lastSwipe = n; stepModule(d > 0 ? 1 : -1); };
@@ -744,6 +746,8 @@ function setNoteTab(t) {
 
 // ======================= Asisten AI (FR-03) =======================
 const AI_DEF = { anthropic: { endpoint: 'https://api.anthropic.com/v1/messages', model: 'claude-haiku-5-5' },
+                 gemini: { endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent', model: 'gemini-2.5-flash' },
+                 copilot: { endpoint: 'https://api.githubcopilot.com/chat/completions', model: 'gpt-4o' },
                  openai: { endpoint: 'https://api.openai.com/v1/chat/completions', model: '' } };
 let aiKey = false, aiBusy = false, aiPrefix = '';
 const aiCfg = () => { const a = S.ai, d = AI_DEF[a.provider] || AI_DEF.anthropic; return { provider: AI_DEF[a.provider] ? a.provider : 'anthropic', endpoint: a.endpoint || d.endpoint, model: a.model || d.model }; };
@@ -778,6 +782,85 @@ $('noteText').oninput = () => { vault.notes = $('noteText').value; queueSave(); 
 $('taskAdd').onclick = addTask;
 $('noteReset').onclick = async () => { try { await window.di.vaultReset(); } catch {} vaultState = 'idle'; vault = { notes: '', tasks: [] }; $('noteText').value = ''; loadVault(); };
 $('aiSend').onclick = sendAi;
+let ipScanDevices = [];
+function renderIpScanDevices() {
+  const query = $('ipScanSearch').value.trim().toLowerCase();
+  const sortBy = $('ipScanSort').value;
+  const responsive = ipScanDevices.filter((device) => device.active);
+  const devices = responsive.filter((device) =>
+    `${device.ip} ${device.name} ${device.mac || ''}`.toLowerCase().includes(query));
+  devices.sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name) || a.ip.localeCompare(b.ip, undefined, { numeric: true });
+    if (sortBy === 'status') return Number(b.active) - Number(a.active) || (a.ping_ms ?? Infinity) - (b.ping_ms ?? Infinity);
+    return a.ip.localeCompare(b.ip, undefined, { numeric: true });
+  });
+  $('ipScanCount').textContent = `${devices.length} perangkat merespons`;
+  $('ipScanExport').disabled = responsive.length === 0;
+  const body = $('ipScanRows');
+  if (!devices.length) {
+    const row = document.createElement('tr'), cell = document.createElement('td');
+    cell.colSpan = 3;
+    cell.className = 'empty';
+    cell.textContent = query ? 'Tidak ada perangkat merespons yang cocok.' : ipScanDevices.length ? 'Tidak ada perangkat yang merespons.' : 'Hasil pemindaian belum tersedia.';
+    row.append(cell); body.replaceChildren(row); return;
+  }
+  body.replaceChildren(...devices.map((device) => {
+    const row = document.createElement('tr');
+    row.classList.toggle('inactive', !device.active);
+    const identity = document.createElement('td'), name = document.createElement('span'), ip = document.createElement('small');
+    name.textContent = device.name; ip.textContent = device.ip; identity.append(name, ip);
+    const status = document.createElement('td');
+    status.textContent = device.active ? `Aktif${device.ping_ms == null ? '' : ` · ${device.ping_ms} ms`}` : 'Tidak merespons';
+    const mac = document.createElement('td'); mac.textContent = device.mac || '—';
+    row.append(identity, status, mac); return row;
+  }));
+}
+$('ipScanStart').onclick = async () => {
+  const button = $('ipScanStart'), info = $('ipScanInfo');
+  if (button.disabled) return;
+  button.disabled = true; button.textContent = 'Memindai…';
+  info.textContent = 'Menyiapkan pemindaian jaringan lokal…';
+  $('ipScanCount').textContent = 'Menunggu…';
+  $('ipScanProgress').value = 0;
+  let unlisten;
+  try {
+    unlisten = await window.di.onIpScanProgress((progress) => {
+      $('ipScanProgress').max = progress.total;
+      $('ipScanProgress').value = progress.completed;
+      info.textContent = `Memindai ${progress.current_ip} · ${progress.completed}/${progress.total} · ${progress.active} aktif`;
+      $('ipScanCount').textContent = `${progress.active} aktif`;
+    });
+    const result = await window.di.scanLocalNetwork();
+    info.textContent = `Jaringan ${result.subnet} · IP lokal ${result.local_ip}`;
+    ipScanDevices = result.devices;
+    $('ipScanProgress').value = $('ipScanProgress').max;
+    renderIpScanDevices();
+  } catch (e) {
+    info.textContent = `Pemindaian gagal: ${String(e)}`;
+  } finally {
+    if (unlisten) unlisten();
+    button.disabled = false; button.textContent = 'Pindai lagi';
+  }
+};
+$('ipScanSearch').oninput = renderIpScanDevices;
+$('ipScanSort').onchange = renderIpScanDevices;
+$('ipScanExport').onclick = () => {
+  const responsive = ipScanDevices.filter((device) => device.active);
+  if (!responsive.length) return;
+  const quote = (value) => {
+    let text = String(value ?? '');
+    if (/^[\s]*[=+\-@\t\r]/.test(text)) text = `'${text}`;
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+  const rows = [['IP', 'Nama', 'Status', 'Ping (ms)', 'MAC'],
+    ...responsive.map((device) => [
+      device.ip, device.name, device.active ? 'Aktif' : 'Tidak merespons', device.ping_ms ?? '', device.mac || ''
+    ])];
+  const blob = new Blob(['\uFEFF' + rows.map((row) => row.map(quote).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = 'pemindaian-jaringan-lokal.csv'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 document.querySelectorAll('[data-aq]').forEach((b) => { b.onclick = () => {
   aiPrefix = aiPrefix === b.dataset.aq ? '' : b.dataset.aq;
   document.querySelectorAll('[data-aq]').forEach((x) => x.classList.toggle('on', x.dataset.aq === aiPrefix)); $('aiIn').focus();
@@ -876,7 +959,7 @@ box.addEventListener('wheel', (e) => { if (S.mod === 'radio' && !S.lib && !S.set
 // Keyboard (saat widget fokus) + tombol media dan pintasan global dari backend
 window.addEventListener('keydown', (e) => {
   const open = S.expanded && !S.lib && !S.set;
-  if (e.altKey && /^[1-4]$/.test(e.key) && open) { e.preventDefault(); setModule(MODS[+e.key - 1]); return; }
+  if (e.altKey && /^[1-5]$/.test(e.key) && open) { e.preventDefault(); setModule(MODS[+e.key - 1]); return; }
   const t = e.target, typing = (t.tagName === 'INPUT' && !['range', 'checkbox'].includes(t.type)) || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT';
   if (typing) { // sedang mengetik: tombol pintasan biasa tidak boleh aktif
     if (e.key === 'Escape') { if (S.lib) closeLib(); else if (S.set) closeSet(); else setExpanded(false); }

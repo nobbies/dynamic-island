@@ -170,7 +170,9 @@ svg{width:14px;height:14px;fill:currentColor}
 .ctrl .ic{position:relative;z-index:1}
 /* kolom isian umum */
 .fld{height:30px;border-radius:10px;border:0;padding:0 10px;font-size:12px;color:var(--fg);background:rgba(var(--w),.1);user-select:text;min-width:0;flex:1;font-family:inherit}
-select.fld{padding:0 6px}
+select.fld{padding:0 6px;color-scheme:dark}
+select.fld option{color:#f5f5f7;background:#1c1d22}
+select.fld option:checked{color:#17181b;background:#d1d5db}
 .area{height:auto;padding:10px 12px;resize:none;line-height:1.4;border-radius:14px;font-size:13px}
 .fld:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .lab{width:56px;flex:none}
@@ -207,6 +209,27 @@ select.fld{padding:0 6px}
 
 /* modul Radio: isi disebar rata dari atas ke bawah (tidak menyisakan celah kosong di dasar panel) */
 .mod[data-mod=radio]{justify-content:space-between}
+.ipscan{gap:4px}
+.ipscan-info{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.ipscan-actions,.ipscan-tools{display:flex;align-items:center;gap:4px;flex:none}
+.ipscan-button{flex:none;padding:4px 8px;background:rgba(var(--w),.12)}
+.ipscan-button:disabled{opacity:.55;cursor:wait}
+.ipscan progress{flex:none;width:100%;height:3px;accent-color:var(--accent)}
+.ipscan-tools .fld{height:24px;padding:0 8px;font-size:10px}
+.ipscan-tools input{flex:1}
+.ipscan-tools select{flex:none;width:112px}
+.ipscan-list{flex:1;min-height:0;overflow:auto;border-radius:8px;background:rgba(var(--w),.035)}
+.ipscan-list table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px;line-height:1.15}
+.ipscan-list th{position:sticky;top:0;background:#202126;color:var(--muted);text-align:left;font-weight:600;z-index:1}
+.ipscan-list th,.ipscan-list td{padding:3px 5px;border-bottom:1px solid rgba(var(--w),.06);overflow:hidden;text-overflow:ellipsis}
+.ipscan-list th:first-child,.ipscan-list td:first-child{width:36%}
+.ipscan-list th:nth-child(2),.ipscan-list td:nth-child(2){width:29%}
+.ipscan-list th:last-child,.ipscan-list td:last-child{width:35%;font-family:Consolas,monospace;font-size:8px;white-space:nowrap}
+.ipscan-list td:first-child{overflow-wrap:anywhere}
+.ipscan-list td:first-child span,.ipscan-list td:first-child small{display:block}
+.ipscan-list td:first-child small{color:var(--muted);font-size:9px;line-height:1.1}
+.ipscan-list tr.inactive td{color:var(--muted);opacity:.65}
+.ipscan-list td.empty{text-align:center;padding:18px 6px}
 
 /* ---- sisi atas menempel ke tepi layar: sudut atas melebar ("telinga" cekung) seperti takik layar.
    Kedua telinga berukuran sama dan bertemu bingkai utama tanpa tumpang tindih. */
